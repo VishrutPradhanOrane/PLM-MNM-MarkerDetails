@@ -1,0 +1,2 @@
+sap.ui.require(["sap/fe/test/JourneyRunner","markerdetails/markerdetails/test/integration/FirstJourney","markerdetails/markerdetails/test/integration/pages/ZC_stl_marker_dlList","markerdetails/markerdetails/test/integration/pages/ZC_stl_marker_dlObjectPage"],function(e,r,t,a){"use strict";var e=new e({launchUrl:sap.ui.require.toUrl("markerdetails/markerdetails")+"/index.html"});e.run({pages:{onTheZC_stl_marker_dlList:t,onTheZC_stl_marker_dlObjectPage:a}},r.run)});
+//# sourceMappingURL=opaTests.qunit.js.map

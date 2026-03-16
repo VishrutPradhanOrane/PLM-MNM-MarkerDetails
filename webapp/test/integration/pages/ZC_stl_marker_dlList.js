@@ -1,0 +1,2 @@
+sap.ui.define(["sap/fe/test/ListReport"],function(t){"use strict";var e={actions:{},assertions:{}};return new t({appId:"markerdetails.markerdetails",componentId:"ZC_stl_marker_dlList",contextPath:"/ZC_stl_marker_dl"},e)});
+//# sourceMappingURL=ZC_stl_marker_dlList.js.map

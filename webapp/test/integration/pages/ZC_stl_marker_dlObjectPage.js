@@ -1,0 +1,2 @@
+sap.ui.define(["sap/fe/test/ObjectPage"],function(e){"use strict";var t={actions:{},assertions:{}};return new e({appId:"markerdetails.markerdetails",componentId:"ZC_stl_marker_dlObjectPage",contextPath:"/ZC_stl_marker_dl"},t)});
+//# sourceMappingURL=ZC_stl_marker_dlObjectPage.js.map

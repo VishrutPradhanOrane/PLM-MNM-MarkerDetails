@@ -1,0 +1,200 @@
+{
+    "_version": "1.59.0",
+    "sap.app": {
+        "id": "markerdetails.markerdetails",
+        "type": "application",
+        "i18n": {
+            "bundleUrl": "i18n/i18n.properties",
+            "supportedLocales": [
+                ""
+            ]
+        },
+        "applicationVersion": {
+            "version": "0.0.1"
+        },
+        "title": "{{appTitle}}",
+        "description": "{{appDescription}}",
+        "resources": "resources.json",
+        "sourceTemplate": {
+            "id": "@sap/generator-fiori:lrop",
+            "version": "1.18.5",
+            "toolsId": "8f8086e8-58a4-49c4-9807-b5f984ce7dfc"
+        },
+        "dataSources": {
+            "annotation": {
+                "type": "ODataAnnotation",
+                "uri": "annotations/annotation.xml",
+                "settings": {
+                    "localUri": "annotations/annotation.xml"
+                }
+            },
+            "mainService": {
+                "uri": "/sap/opu/odata4/sap/zsb_marker_detail/srvd/sap/zsd_marker_detail/0001/",
+                "type": "OData",
+                "settings": {
+                    "annotations": [
+                        "annotation"
+                    ],
+                    "localUri": "localService/mainService/metadata.xml",
+                    "odataVersion": "4.0"
+                }
+            },
+            "uploadService": {
+                "uri": "/sap/opu/odata/sap/ZMARKER_UPLOAD_SRV/",
+                "type": "OData",
+                "settings": {
+                    "odataVersion": "2.0"
+                }
+            }
+        },
+        "crossNavigation": {
+            "inbounds": {
+                "ZMARKER_DETAIL-Marker": {
+                    "semanticObject": "ZMARKER_DETAIL",
+                    "action": "Marker",
+                    "title": "{{ZMARKER_DETAIL-Marker.flpTitle}}",
+                    "signature": {
+                        "parameters": {},
+                        "additionalParameters": "allowed"
+                    }
+                }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "icons": {
+            "icon": "",
+            "favIcon": "",
+            "phone": "",
+            "phone@2": "",
+            "tablet": "",
+            "tablet@2": ""
+        },
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "flexEnabled": true,
+        "dependencies": {
+            "minUI5Version": "1.120.14",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.fe.templates": {}
+            }
+        },
+        "contentDensities": {
+            "compact": true,
+            "cozy": true
+        },
+        "models": {
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "markerdetails.markerdetails.i18n.i18n",
+                    "supportedLocales": [
+                        ""
+                    ]
+                }
+            },
+            "": {
+                "dataSource": "mainService",
+                "preload": true,
+                "settings": {
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": true
+                }
+            },
+            "@i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "uri": "i18n/i18n.properties",
+                "settings": {
+                    "supportedLocales": [
+                        ""
+                    ]
+                }
+            },
+            "uploadModel": {
+                "dataSource": "uploadService",
+                "settings": {
+                    "defaultBindingMode": "TwoWay"
+                }
+            }
+        },
+        "resources": {
+            "css": []
+        },
+        "routing": {
+            "config": {},
+            "routes": [
+                {
+                    "pattern": ":?query:",
+                    "name": "ZC_stl_marker_dlList",
+                    "target": "ZC_stl_marker_dlList"
+                },
+                {
+                    "pattern": "ZC_stl_marker_dl({key}):?query:",
+                    "name": "ZC_stl_marker_dlObjectPage",
+                    "target": "ZC_stl_marker_dlObjectPage"
+                }
+            ],
+            "targets": {
+                "ZC_stl_marker_dlList": {
+                    "type": "Component",
+                    "id": "ZC_stl_marker_dlList",
+                    "name": "sap.fe.templates.ListReport",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/ZC_stl_marker_dl",
+                            "variantManagement": "Page",
+                            "navigation": {
+                                "ZC_stl_marker_dl": {
+                                    "detail": {
+                                        "route": "ZC_stl_marker_dlObjectPage"
+                                    }
+                                }
+                            },
+                            "controlConfiguration": {
+                                "@com.sap.vocabularies.UI.v1.LineItem": {
+                                    "tableSettings": {
+                                        "type": "GridTable"
+                                    },
+                                    "actions": {
+                                        "UploadMarker": {
+                                            "press": "markerdetails.markerdetails.ext.controller.UploadMarker.UploadMarker",
+                                            "visible": true,
+                                            "enabled": true,
+                                            "requiresSelection": true,
+                                            "text": "Upload Marker"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "ZC_stl_marker_dlObjectPage": {
+                    "type": "Component",
+                    "id": "ZC_stl_marker_dlObjectPage",
+                    "name": "sap.fe.templates.ObjectPage",
+                    "options": {
+                        "settings": {
+                            "editableHeaderContent": false,
+                            "contextPath": "/ZC_stl_marker_dl"
+                        }
+                    }
+                }
+            }
+        },
+        "flexBundle": false
+    },
+    "sap.fiori": {
+        "registrationIds": [],
+        "archeType": "transactional"
+    }
+}
