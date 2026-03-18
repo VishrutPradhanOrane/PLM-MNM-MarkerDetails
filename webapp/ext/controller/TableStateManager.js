@@ -105,9 +105,9 @@ sap.ui.define([
       });
 
       const oFileNameText = new Text({
-        text: "No file selected",
-        class: "sapUiMediumMarginTop"
+        text: "No file selected"
       });
+      oFileNameText.addStyleClass("sapUiSmallMarginTop sapUiTinyMarginBottom");
 
       const oUploadButton = new Button({
         text: "Upload",
@@ -129,28 +129,34 @@ sap.ui.define([
         }
       });
 
+      oFileUploader.addStyleClass("sapUiTinyMarginTop sapUiSmallMarginBottom");
+
+      const oMarkerText = new Text({
+        text: "Marker: " + (oRowData.StyleCode || oRowData.Styleid || "Selected row")
+      });
+      oMarkerText.addStyleClass("sapUiTinyMarginBottom");
+
+      const oHintText = new Text({ text: "Select a PDF file (max 50 MB) and click Upload." });
+      oHintText.addStyleClass("sapUiTinyMarginBottom sapUiSmallMarginTop");
+
       const oVBox = new VBox({
         items: [
-          new Text({ 
-            text: "Uploading for: " + (oRowData.StyleCode || "Marker"), 
-            class: "sapUiMediumMarginBottom"
-          }),
-          new Text({ text: "Upload PDF to Attachment", class: "sapUiMediumMarginBottom" }),
+          oMarkerText,
+          oHintText,
           oFileUploader,
-          oFileNameText,
-          new VBox({
-            items: [oUploadButton, oCancelButton],
-            direction: "Row",
-            class: "sapUiMediumMarginTop"
-          }).addStyleClass("sapUiSmallMargin")
-        ],
-        class: "sapUiMediumMargin"
+          oFileNameText
+        ]
       });
+      oVBox.addStyleClass("sapUiMediumMargin sapUiResponsiveContentPadding");
 
       const oDialog = new Dialog({
         title: "Upload PDF Attachment",
+        contentWidth: "30rem",
+        draggable: true,
+        resizable: true,
         content: [oVBox],
-        endButton: null,
+        beginButton: oUploadButton,
+        endButton: oCancelButton,
         afterClose: function () {
           oDialog.destroy();
           oFileUploader.destroy();

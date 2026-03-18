@@ -10,6 +10,134 @@ sap.ui.define([
 ], function (MessageToast, FileUploader, Dialog, Button, VBox, Text, BusyIndicator, Controller) {
   "use strict";
 
+  var UPLOAD_URL = "/sap/opu/odata/sap/ZMARKER_UPLOAD_SRV/UploadSet";
+
+  function postUploadPayload(oPayload, oFile, oDialog) {
+    var oHeaders = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "X-Requested-With": "XMLHttpRequest"
+    };
+
+    console.log("[UploadMarker] ===== FULL REQUEST PAYLOAD =====");
+    console.log("  URL:", UPLOAD_URL);
+    console.log("  Method: POST");
+    console.log("  Content-Type: application/json");
+    console.log("  --- BODY (JSON) ---");
+    console.log(JSON.stringify(oPayload, null, 2));
+    console.log("[UploadMarker] ===== END PAYLOAD =====");
+
+    return fetch(UPLOAD_URL, {
+      method: "POST",
+      headers: oHeaders,
+      credentials: "same-origin",
+      body: JSON.stringify(oPayload)
+    })
+      .then(function (response) {
+        return response.text().then(function (sBodyText) {
+          return {
+            ok: response.ok,
+            status: response.status,
+            body: sBodyText
+          };
+        });
+      })
+      .then(function (result) {
+        BusyIndicator.hide();
+        if (result.ok) {
+          MessageToast.show("File uploaded successfully: " + oFile.name);
+          console.log("[UploadMarker] Upload success:", result.body);
+          oDialog.close();
+          return;
+        }
+
+        console.error("[UploadMarker] Upload error:", result.status, result.body);
+        var sMsg = "Upload failed: " + result.status;
+
+        try {
+          var oParser = new DOMParser();
+          var oDoc = oParser.parseFromString(result.body, "text/xml");
+          var oMsgNode = oDoc.getElementsByTagName("message")[0];
+          if (oMsgNode) {
+            sMsg = oMsgNode.textContent;
+          }
+        } catch (ex) {
+          try {
+            sMsg = JSON.parse(result.body).error.message.value;
+          } catch (ex2) {
+            sMsg = "Upload failed: " + result.status;
+          }
+        }
+
+        MessageToast.show(sMsg);
+      })
+      .catch(function (oError) {
+        BusyIndicator.hide();
+        console.error("[UploadMarker] Fetch error:", oError);
+        MessageToast.show("Upload failed: " + (oError && oError.message ? oError.message : "Unknown error"));
+      });
+  }
+
+  function uploadFile(oModel, oFile, sFilePath, oDialog) {
+    BusyIndicator.show(0);
+    var oReader = new FileReader();
+
+    oReader.onload = function (e) {
+      var aBytes = new Uint8Array(e.target.result);
+      var sBase64 = btoa(String.fromCharCode.apply(null, aBytes));
+
+      var oPayload = {
+        Slug: {
+          filepath: sFilePath || oFile.name,
+          filename: oFile.name,
+          fabricno: "",
+          size: "",
+          styleid: ""
+        },
+        pdfdata: sBase64
+      };
+
+      postUploadPayload(oPayload, oFile, oDialog);
+    };
+
+    oReader.onerror = function () {
+      BusyIndicator.hide();
+      MessageToast.show("Error reading file");
+    };
+
+    oReader.readAsArrayBuffer(oFile);
+  }
+
+  function uploadFileForRow(oModel, oFile, oRowData, sFilePath, oDialog) {
+    BusyIndicator.show(0);
+    var oReader = new FileReader();
+
+    oReader.onload = function (e) {
+      var aBytes = new Uint8Array(e.target.result);
+      var sBase64 = btoa(String.fromCharCode.apply(null, aBytes));
+
+      var oPayload = {
+        Slug: {
+          filepath: sFilePath || oFile.name,
+          filename: oFile.name,
+          fabricno: oRowData && oRowData.FabricNo ? oRowData.FabricNo : "",
+          size: oRowData && oRowData.ArticleSize ? String(oRowData.ArticleSize) : "",
+          styleid: oRowData && oRowData.Styleid ? oRowData.Styleid : ""
+        },
+        pdfdata: sBase64
+      };
+
+      postUploadPayload(oPayload, oFile, oDialog);
+    };
+
+    oReader.onerror = function () {
+      BusyIndicator.hide();
+      MessageToast.show("Error reading file");
+    };
+
+    oReader.readAsArrayBuffer(oFile);
+  }
+
   return {
     /**
      * Handle PDF upload for Marker Attachment field
@@ -18,14 +146,35 @@ sap.ui.define([
      * @param aSelectedContexts the selected contexts of the table rows.
      */
     UploadMarker: function (oContext, aSelectedContexts) {
-      var that = this;
       var oModel;
+      var oSelectedFile = null;
+      var sSelectedFilePath = "";
+      var oTargetContext = null;
+      var oRowData = null;
+
+      if (aSelectedContexts && aSelectedContexts.length > 0) {
+        oTargetContext = aSelectedContexts[0];
+      } else if (oContext) {
+        oTargetContext = oContext;
+      }
+
+      if (aSelectedContexts && aSelectedContexts.length > 1) {
+        MessageToast.show("Multiple rows selected. Upload will use the first selected row.");
+      }
+
+      if (oTargetContext && oTargetContext.getObject) {
+        oRowData = oTargetContext.getObject();
+      }
 
       // Get the upload model
       if (this.getModel) {
         oModel = this.getModel("uploadModel");
       } else if (this.getView) {
         oModel = this.getView().getModel("uploadModel");
+      }
+
+      if (!oModel && oTargetContext && oTargetContext.getModel) {
+        oModel = oTargetContext.getModel("uploadModel");
       }
 
       if (!oModel) {
@@ -62,28 +211,33 @@ sap.ui.define([
 
           // Show filename in dialog
           oFileNameText.setText("Selected: " + oFile.name);
-          that._selectedFile = oFile;
+          oSelectedFile = oFile;
+          sSelectedFilePath = oEvent.getSource && oEvent.getSource().getValue ? oEvent.getSource().getValue() : oFile.name;
         }
       });
 
       // Create text to display selected filename
       var oFileNameText = new Text({
-        text: "No file selected",
-        class: "sapUiMediumMarginTop"
+        text: "No file selected"
       });
+      oFileNameText.addStyleClass("sapUiSmallMarginTop sapUiTinyMarginBottom");
 
       // Create upload button
       var oUploadButton = new Button({
         text: "Upload",
         type: "Success",
         press: function () {
-          if (!that._selectedFile) {
+          if (!oSelectedFile) {
             MessageToast.show("Please select a PDF file first");
             return;
           }
 
           // Upload the file
-          that._uploadFile(oModel, that._selectedFile, oFileUploader, oDialog);
+          if (oRowData && oRowData.Styleid) {
+            uploadFileForRow(oModel, oSelectedFile, oRowData, sSelectedFilePath, oDialog);
+          } else {
+            MessageToast.show("Selected row is missing Styleid. Cannot upload marker attachment.");
+          }
         }
       });
 
@@ -95,26 +249,34 @@ sap.ui.define([
         }
       });
 
+      oFileUploader.addStyleClass("sapUiTinyMarginTop sapUiSmallMarginBottom");
+
       // Create content
+      var oIntroText = new Text({ text: "Upload a PDF file for the selected marker." });
+      oIntroText.addStyleClass("sapUiTinyMarginBottom");
+
+      var oHintText = new Text({ text: "Only PDF files are allowed. Maximum size: 50 MB." });
+      oHintText.addStyleClass("sapUiTinyMarginBottom sapUiSmallMarginTop");
+
       var oVBox = new VBox({
         items: [
-          new Text({ text: "Upload PDF to Marker Attachment", class: "sapUiMediumMarginBottom" }),
+          oIntroText,
+          oHintText,
           oFileUploader,
-          oFileNameText,
-          new VBox({
-            items: [oUploadButton, oCancelButton],
-            direction: "Row",
-            class: "sapUiMediumMarginTop"
-          }).addStyleClass("sapUiSmallMargin")
-        ],
-        class: "sapUiMediumMargin"
+          oFileNameText
+        ]
       });
+      oVBox.addStyleClass("sapUiMediumMargin sapUiResponsiveContentPadding");
 
       // Create dialog
       var oDialog = new Dialog({
         title: "Upload PDF Attachment",
+        contentWidth: "30rem",
+        draggable: true,
+        resizable: true,
         content: [oVBox],
-        endButton: null,
+        beginButton: oUploadButton,
+        endButton: oCancelButton,
         afterClose: function () {
           oDialog.destroy();
           oFileUploader.destroy();
@@ -160,8 +322,9 @@ sap.ui.define([
      * Upload attachment for a specific row
      */
     _uploadAttachmentForRow: function (oRowData, oContext) {
-      var that = this;
       var oModel = oContext.getModel("uploadModel");
+      var oSelectedFile = null;
+      var sSelectedFilePath = "";
       
       // If model not found via context, try to get from controller
       if (!oModel && this.getOwnerComponent) {
@@ -207,28 +370,29 @@ sap.ui.define([
 
           // Show filename in dialog
           oFileNameText.setText("Selected: " + oFile.name);
-          that._selectedFile = oFile;
+          oSelectedFile = oFile;
+          sSelectedFilePath = oEvent.getSource && oEvent.getSource().getValue ? oEvent.getSource().getValue() : oFile.name;
         }
       });
 
       // Create text to display selected filename
       var oFileNameText = new Text({
-        text: "No file selected",
-        class: "sapUiMediumMarginTop"
+        text: "No file selected"
       });
+      oFileNameText.addStyleClass("sapUiSmallMarginTop sapUiTinyMarginBottom");
 
       // Create upload button
       var oUploadButton = new Button({
         text: "Upload",
         type: "Success",
         press: function () {
-          if (!that._selectedFile) {
+          if (!oSelectedFile) {
             MessageToast.show("Please select a PDF file first");
             return;
           }
 
           // Upload the file
-          that._uploadFileForRow(oModel, that._selectedFile, oRowData, oContext, oFileUploader, oDialog);
+          uploadFileForRow(oModel, oSelectedFile, oRowData, sSelectedFilePath, oDialog);
         }
       });
 
@@ -240,30 +404,36 @@ sap.ui.define([
         }
       });
 
+      oFileUploader.addStyleClass("sapUiTinyMarginTop sapUiSmallMarginBottom");
+
       // Create content
+      var oMarkerText = new Text({
+        text: "Marker: " + (oRowData.StyleCode || oRowData.Styleid || "Selected row")
+      });
+      oMarkerText.addStyleClass("sapUiTinyMarginBottom");
+
+      var oHintText = new Text({ text: "Select a PDF file (max 50 MB) and click Upload." });
+      oHintText.addStyleClass("sapUiTinyMarginBottom sapUiSmallMarginTop");
+
       var oVBox = new VBox({
         items: [
-          new Text({ 
-            text: "Uploading for: " + (oRowData.StyleCode || "Marker"), 
-            class: "sapUiMediumMarginBottom"
-          }),
-          new Text({ text: "Upload PDF to Attachment", class: "sapUiMediumMarginBottom" }),
+          oMarkerText,
+          oHintText,
           oFileUploader,
-          oFileNameText,
-          new VBox({
-            items: [oUploadButton, oCancelButton],
-            direction: "Row",
-            class: "sapUiMediumMarginTop"
-          }).addStyleClass("sapUiSmallMargin")
-        ],
-        class: "sapUiMediumMargin"
+          oFileNameText
+        ]
       });
+      oVBox.addStyleClass("sapUiMediumMargin sapUiResponsiveContentPadding");
 
       // Create dialog
       var oDialog = new Dialog({
         title: "Upload PDF Attachment",
+        contentWidth: "30rem",
+        draggable: true,
+        resizable: true,
         content: [oVBox],
-        endButton: null,
+        beginButton: oUploadButton,
+        endButton: oCancelButton,
         afterClose: function () {
           oDialog.destroy();
           oFileUploader.destroy();
@@ -277,97 +447,16 @@ sap.ui.define([
      * Upload file to OData service
      */
     _uploadFile: function (oModel, oFile, oFileUploader, oDialog) {
-      BusyIndicator.show(0);
-      var that = this;
-      var oReader = new FileReader();
-
-      oReader.onload = function (e) {
-        var aBytes = new Uint8Array(e.target.result);
-        var sBase64 = btoa(String.fromCharCode.apply(null, aBytes));
-
-        var oPayload = {
-          Filename: oFile.name,
-          Filetype: oFile.type,
-          Filesize: oFile.size.toString(),
-          FileContent: sBase64
-        };
-
-        oModel.create("/UploadSet", oPayload, {
-          success: function (oData, response) {
-            BusyIndicator.hide();
-            MessageToast.show("File uploaded successfully: " + oFile.name);
-            console.log("Upload Service Response:", oData, response);
-            oDialog.close();
-          },
-          error: function (oError) {
-            BusyIndicator.hide();
-            console.error("Upload Service Error:", oError);
-            var sMsg = "Error uploading file";
-            try {
-              sMsg = JSON.parse(oError.responseText).error.message.value;
-            } catch (e) {
-              sMsg = oError.message || oError.statusText;
-            }
-            MessageToast.show("Failed to upload: " + sMsg);
-          }
-        });
-      };
-
-      oReader.onerror = function () {
-        BusyIndicator.hide();
-        MessageToast.show("Error reading file");
-      };
-
-      oReader.readAsArrayBuffer(oFile);
+      var sFilePath = oFileUploader && oFileUploader.getValue ? oFileUploader.getValue() : oFile.name;
+      uploadFile(oModel, oFile, sFilePath, oDialog);
     },
 
     /**
      * Upload file to OData service for a specific row
      */
     _uploadFileForRow: function (oModel, oFile, oRowData, oContext, oFileUploader, oDialog) {
-      BusyIndicator.show(0);
-      var that = this;
-      var oReader = new FileReader();
-
-      oReader.onload = function (e) {
-        var aBytes = new Uint8Array(e.target.result);
-        var sBase64 = btoa(String.fromCharCode.apply(null, aBytes));
-
-        var oPayload = {
-          Filename: oFile.name,
-          Filetype: oFile.type,
-          Filesize: oFile.size.toString(),
-          FileContent: sBase64,
-          MarkerID: oRowData.Styleid
-        };
-
-        oModel.create("/UploadSet", oPayload, {
-          success: function (oData, response) {
-            BusyIndicator.hide();
-            MessageToast.show("File uploaded successfully: " + oFile.name);
-            console.log("Upload Service Response:", oData, response);
-            oDialog.close();
-          },
-          error: function (oError) {
-            BusyIndicator.hide();
-            console.error("Upload Service Error:", oError);
-            var sMsg = "Error uploading file";
-            try {
-              sMsg = JSON.parse(oError.responseText).error.message.value;
-            } catch (e) {
-              sMsg = oError.message || oError.statusText;
-            }
-            MessageToast.show("Failed to upload: " + sMsg);
-          }
-        });
-      };
-
-      oReader.onerror = function () {
-        BusyIndicator.hide();
-        MessageToast.show("Error reading file");
-      };
-
-      oReader.readAsArrayBuffer(oFile);
+      var sFilePath = oFileUploader && oFileUploader.getValue ? oFileUploader.getValue() : oFile.name;
+      uploadFileForRow(oModel, oFile, oRowData, sFilePath, oDialog);
     }
   };
 });
